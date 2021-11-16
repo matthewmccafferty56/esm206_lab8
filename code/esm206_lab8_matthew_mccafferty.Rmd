@@ -1,0 +1,128 @@
+---
+title: "esm206_lab8"
+author: "Matthew McCafferty"
+date: "11/16/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(modelsummary)
+library(broom)
+library(here)
+library(corrplot)
+```
+
+### Read in slo homes data
+
+```{r}
+homes <- read_csv(here("data", "slo_homes.csv"))
+```
+### Create a subset with four cities (homes subset) onkly contains observations for 
+
+-"San luis Obispo"
+-"Atascadero"
+-"Arroyo Grande"
+-"Santa Maria-Orcutt"
+
+```{r}
+homes_subset <- homes %>% 
+  filter(City %in% c("San Luis Obispo", "Atascadero", "Arroyo Grande","Santa Maria-Orcutt"))
+
+```
+
+### A little exploration
+
+Task: create a summary table that has the mean and standard deviation of home prices grouped by city and sales status
+
+```{r, include=FALSE}
+homes_subset %>% 
+  group_by(City, Status) %>% 
+  summarize(mean = mean(Price),
+            sd= sd(Price))
+
+```
+
+
+Task: Explore relationship between square footage and homes price in a scatterplot
+
+```{r}
+ggplot(data = homes_subset, aes(x = SqFt, y = Price)) +
+  geom_point() +
+  theme_minimal() +
+  geom_smooth(method = "lm")
+```
+
+
+### Try a few linear models 
+
+Use multiple linear regression to investigate relationships between several predictor variables and home price.
+
+Create 2 different permutations of this model
+(1) City, bedrooms, bathrooms, Sqft, Status
+(2) price~ Coty Sqft, Status
+(3) Try another one (lm3)
+
+```{r}
+lm_1 <- lm(Price ~ City + Bedrooms + Bathrooms + SqFt + Status, data = homes_subset)
+
+lm_2 <- lm(Price ~ City + SqFt + Status, data = homes_subset)
+
+lm_3 <- lm(SqFt ~ Price + Status, data = homes_subset)
+
+summary(lm_1)
+
+# If I wanted San Luis Obispo to be the reference level:
+#Use fct_relevel to specify a new reference level
+
+new_homes_subset<- homes_subset %>% 
+  mutate(City = fct_relevel(City, "San Luis Obispo")) 
+
+lm_slo <- lm(Price ~ City + SqFt, data = new_homes_subset)
+
+summary(lm_slo)
+```
+### R^2 Almost 54% of variance in home price is explained by this model
+
+
+### Explore correlations between quantitative variables 
+
+Make a subset called homes_quat starting with homes subset that only contains proce Sqft
+
+```{r}
+homes_quant <- homes_subset %>% 
+  select(Price:SqFt)
+
+homes_cor <- cor(homes_quant)
+
+
+corrplot(homes_cor, method = "ellipse")
+```
+
+### Compare AIC values
+
+```{r}
+AIC(lm_1)
+AIC(lm_2)
+```
+### Model Summary to return multiple model outputs
+
+```{r}
+modelsummary(list(lm_1, lm_2, lm_3))
+```
+
+### Check out Diagnostic plots for lm_1
+
+```{r}
+plot(lm_1)
+```
+### Use Broom:: augment to return the predictions for existing observations
+
+```{r}
+home_predictions <- augment(lm_1)
+
+ggplot(data = home_predictions, aes(x=.resid)) +
+  geom_histogram()
+```
+
